@@ -1,6 +1,6 @@
 " `repl` plugin: syntax highlightling for REPL buffer
 " Author: Sergey Khorev <sergey.khorev@gmail.com>
-" Last Change:	$HGLastChangedDate: 2012-12-03 11:34 +0400 $
+" Last Change:	$HGLastChangedDate: 2012-12-03 11:45 +0400 $
 
 if exists('b:current_syntax')
   finish

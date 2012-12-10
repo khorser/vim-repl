@@ -1,6 +1,6 @@
 " REPL plugin to interact with interpreters for various programming languages
 " Author: Sergey Khorev <sergey.khorev@gmail.com>
-" Last Change:	$HGLastChangedDate: 2012-12-03 11:34 +0400 $
+" Last Change:	$HGLastChangedDate: 2012-12-03 11:45 +0400 $
 
 let s:ReplFullyInitialized = 0
 
