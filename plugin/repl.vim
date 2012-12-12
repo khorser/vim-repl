@@ -1,13 +1,16 @@
 " REPL plugin to interact with interpreters for various programming languages
 " Author: Sergey Khorev <sergey.khorev@gmail.com>
-" Last Change:	$HGLastChangedDate: 2012-12-03 11:45 +0400 $
+" Last Change:	$HGLastChangedDate: 2012-12-12 17:48 +0400 $
+" Home Page:  http://www.vim.org/scripts/script.php?script_id=4336
+"             https://bitbucket.org/khorser/vim-repl
+"             https://github.com/khorser/vim-repl
 "
 " Prerequisites: you need to install AND build Vimproc (https://github.com/Shougo/vimproc)
 "
 " Commands:
 " :Open<YourInterpreter> <ExtraArguments> - start session
 " e.g.
-"  :OpenGHCi to start GHCi 
+"  :OpenGHCi to start GHCi
 "  :OpenGHCi! to forcefully start a new session in a new window
 
 " :CloseRepl (local to the repl window) - disconnect REPL
@@ -67,7 +70,7 @@ if v:version < 703
   finish
 endif
 
-let g:ReplDefaults = 
+let g:ReplDefaults =
       \{'command' : '',
       \ 'init'    : '',
       \ 'prompt'  : '^[^>]*>',
