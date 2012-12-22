@@ -1,6 +1,6 @@
-" REPL plugin to interact with interpreters for various programming languages
+"y REPL plugin to interact with interpreters for various programming languages
 " Author: Sergey Khorev <sergey.khorev@gmail.com>
-" Last Change:	$HGLastChangedDate: 2012-12-03 11:45 +0400 $
+" Last Change:	$HGLastChangedDate: 2012-12-22 07:47 +0400 $
 
 let s:ReplFullyInitialized = 0
 
@@ -11,18 +11,18 @@ function! s:ReplInit2()
   try
     call vimproc#version()
   catch
-    echoerr 'Error running vimproc:' v:exception '. Is it installed?'
+    echoerr 'Error running vimproc:' v:exception '. Please check it has been built and installed'
     return
   endtry
 
   let s:ReplFullyInitialized = 1
   augroup REPL
-    " TODO setup more autocommand for async updates
-    autocmd CursorHold * call <SID>ReadFromRepl()
+    " TODO setup more autocommand for async updates, CursorMoved?
+    autocmd CursorHold,InsertLeave * call <SID>ReadFromRepl()
   augroup END
 
-  vnoremap <silent> <Plug>EvalSelection :call <SID>EvalSelection()<cr>
-  nnoremap <silent> <Plug>EvalLine :call <SID>EvalLine()<cr>
+  vnoremap <silent> <Plug>EvalSelection :call repl#SendText('', repl#GetSelection())<cr>
+  nnoremap <silent> <Plug>EvalLine :call repl#SendText('', getline('.'))<cr>
 
   if !hasmapto('<Plug>EvalSelection')
     vmap <unique> <silent> <Leader>e <Plug>EvalSelection
@@ -200,10 +200,10 @@ function! s:Execute()
     if l:next != [0, 0]
       " delete previous output
       let l:from = l:current.line2 + 1
-      let l:to = l:next[0] - 2
+      let l:to = l:next[0] - 1
       exec 'silent' l:from ','  l:to 'delete _'
     endif
-    call s:SendToRepl(join(l:current.lines, b:replinfo.join), 0, 0)
+    call s:SendToRepl(join(l:current.lines, b:replinfo.join), 0, 0, bufnr(''))
   endif
 endfunction
 
@@ -238,7 +238,7 @@ function! s:CleanupDeadBuffers()
   call filter(s:replbufs, '!empty(v:val)')
 endfunction
 
-function! s:FindReplBuffer(type)
+function! s:FindReplBufferWithType(type)
   call s:CleanupDeadBuffers()
   let l:b = 0
   if exists('b:replbuf') && bufexists(b:replbuf)
@@ -248,19 +248,15 @@ function! s:FindReplBuffer(type)
   elseif exists('s:replbufs["'.a:type.'"]')
     let l:b = s:replbufs[a:type][0]
   endif
-  if l:b > 0 && bufwinnr(l:b) == -1 " window not visible
-    exec getbufvar(l:b, 'replinfo').split 'sbuffer'
-    wincmd W
-  endif
   return l:b
-endfunction " FindReplBuffer
+endfunction " FindReplBufferWithType
 
 function! s:NewReplBuffer(args, type)
   call s:CleanupDeadBuffers()
   " populate REPL info using default entry as a prototype
   let l:replinfo = deepcopy(g:ReplDefaults)
   call extend(l:replinfo, g:ReplTypes[a:type], 'force')
-  call extend(l:replinfo, {'curpos': 1, 'ready': 0, 'more': '', 'type': a:type})
+  call extend(l:replinfo, {'curpos': 1, 'markerpending': 0, 'echo': [], 'type': a:type})
 
   try
     let l:replinfo.proc = vimproc#popen2(l:replinfo.command . ' ' . a:args)
@@ -273,9 +269,9 @@ function! s:NewReplBuffer(args, type)
   exec l:replinfo.split 'new'
   let b:replinfo = l:replinfo
 
-  call s:SendToRepl(b:replinfo.init, 0, 0)
-
   let l:buf = bufnr('')
+  call s:SendToRepl(b:replinfo.init, 0, 0, l:buf)
+
   if exists('s:replbufs["'.a:type.'"]')
     let l:bufs = s:replbufs[a:type]
   else
@@ -306,7 +302,11 @@ function! repl#OpenRepl(args, type, new)
   if a:new
     let l:b = 0
   else
-    let l:b = s:FindReplBuffer(a:type)
+    let l:b = s:FindReplBufferWithType(a:type)
+    if l:b > 0 && bufwinnr(l:b) == -1 " window not visible
+      exec getbufvar(l:b, 'replinfo').split 'sbuffer' l:b
+      wincmd W
+    endif
   endif
   if !l:b
     let l:b = s:NewReplBuffer(a:args, a:type)
@@ -344,61 +344,80 @@ function! s:ReadFromRepl()
       endif
     endfor
   endfor
-endfunction " ReadFromRepl
+endfunction
+
+" Manipulate text to imitate command line experience
+function! s:EnrichText(text)
+  let l:prompt = b:replinfo.prompt
+  if b:replinfo.markerpending
+    if !empty(b:replinfo.echo)
+      let l:echo = remove(b:replinfo.echo, 0)
+    else
+      let l:echo = ''
+    endif
+    call extend(a:text, [l:echo, b:replinfo.outmarker], 0)
+    let b:replinfo.markerpending = 0
+  endif
+  let l:promptPos = match(a:text, l:prompt)
+  let a:text[0] = getline(b:replinfo.curpos) . a:text[0]
+  while l:promptPos > -1
+    let l:line = a:text[l:promptPos]
+    let l:promptEnd = match(l:line, l:prompt . '\m\zs')
+    if !empty(b:replinfo.echo)
+      let l:echo = remove(b:replinfo.echo, 0)
+    else
+      let l:echo = ''
+    endif
+    let a:text[l:promptPos] = l:line[: l:promptEnd] . l:echo
+    if l:promptPos == len(a:text) - 1
+      let b:replinfo.markerpending = 1
+    else " more text after the prompt
+      call extend(a:text,
+            \ [b:replinfo.outmarker, strpart(l:line, l:promptEnd+1)],
+            \ l:promptPos+1)
+    endif
+    let l:promptPos = match(a:text, l:prompt, l:promptPos + 1)
+  endwhile
+endfunction
 
 function! s:WriteToBuffer(buf, text)
-  let l:src = bufwinnr('')
-  if !empty(a:text)
-    exec bufwinnr(a:buf) 'wincmd w'
-    let l:text = split(a:text, '\m[\r]\?\n', 1)
-    if b:replinfo.curpos < 1
-      let b:replinfo.curpos = line('$')
-    endif
-    if b:replinfo.ready
-      " new round of interaction
-      if !empty(b:replinfo.more)
-        call setline(b:replinfo.curpos, getline(b:replinfo.curpos) . b:replinfo.more)
-        let b:replinfo.more = ''
-      endif
-
-      let b:replinfo.ready = 0
-      call append(b:replinfo.curpos, b:replinfo.outmarker)
-      let b:replinfo.curpos += 1
-      call append(b:replinfo.curpos, l:text)
-      let b:replinfo.curpos += len(l:text)
-    else
-      let l:text[0] = getline(b:replinfo.curpos) . l:text[0]
-      call setline(b:replinfo.curpos, l:text)
-      let b:replinfo.curpos += len(l:text) - 1
-    endif
-    if b:replinfo.scroll
-      call cursor(b:replinfo.curpos, len(getline(b:replinfo.curpos)))
-    endif
-    if !b:replinfo.ready
-      let l:prompt = b:replinfo.prompt
-      if matchstr(l:text[-1], l:prompt) != ''
-            \ || matchstr(getline(line(b:replinfo.curpos)), l:prompt) != ''
-        " if the last output line is our prompt
-        let b:replinfo.ready = 1
-        " don't print prompt if the line is not the last one
-        if b:replinfo.curpos < line('$')
-          let l:from = b:replinfo.curpos - 1
-          let l:to = b:replinfo.curpos
-          exec 'silent' l:from ',' l:to 'delete _'
-          call s:EndOfCurrOrPrevPrompt(1) " return to the command
-          call s:GoToEndOfNextOrCurrentCommand()
-        endif
-      endif
-    endif
-    exec l:src 'wincmd w'
-  endif
-endfunction "WriteToBuffer
-
-function! s:SendToRepl(text, echo, append)
-  call s:CleanupDeadBuffers()
   if empty(a:text)
     return
   endif
+
+  let l:src = bufwinnr('')
+  exec bufwinnr(a:buf) 'wincmd w'
+  let l:text = split(a:text, '\m[\r]\?\n', 1)
+  if b:replinfo.curpos < 1
+    let b:replinfo.curpos = line('$')
+  endif
+
+  call s:EnrichText(l:text)
+  call setline(b:replinfo.curpos, l:text[0])
+  call append(b:replinfo.curpos, l:text[1:])
+
+  let b:replinfo.curpos += len(l:text) - 1
+  if b:replinfo.scroll
+    call cursor(b:replinfo.curpos, len(getline(b:replinfo.curpos)))
+  endif
+
+  " if the last output line is our prompt
+  if b:replinfo.markerpending && b:replinfo.curpos < line('$')
+    " delete the prompt if the line is not the last one
+    exec 'silent' b:replinfo.curpos 'delete _'
+    call s:EndOfCurrOrPrevPrompt(1) " return to the command
+    call s:GoToEndOfNextOrCurrentCommand()
+  endif
+  exec l:src 'wincmd w'
+endfunction "WriteToBuffer
+
+function! s:FindReplBuffer(bufOrType)
+  if type(a:bufOrType) == type(0)
+    return a:bufOrType
+  elseif !empty(a:bufOrType)
+    return s:FindReplBufferWithType(a:bufOrType)
+  endif
+  let l:b = 0
   if exists('b:replinfo')
     let l:b = bufnr('')
   elseif exists('b:replbuf')
@@ -417,6 +436,15 @@ function! s:SendToRepl(text, echo, append)
       endif
     endfor
   endif
+  return l:b
+endfunction " FindReplBuffer
+
+function! s:SendToRepl(text, echo, append, bufOrType)
+  call s:CleanupDeadBuffers()
+  if empty(a:text)
+    return
+  endif
+  let l:b = s:FindReplBuffer(a:bufOrType)
   if !s:IsBufferValid(l:b)
     echoerr 'REPL is not connected'
     return
@@ -430,7 +458,7 @@ function! s:SendToRepl(text, echo, append)
     let l:text = string(a:text)
   endif
   if a:echo
-    let l:info.more = l:text
+    call add(l:info.echo, l:text)
   endif
   let l:proc = l:info.proc
   if l:proc.is_valid && !l:proc.stdin.eof
@@ -441,15 +469,16 @@ function! s:SendToRepl(text, echo, append)
   endif
 endfunction " SendToRepl
 
-function! s:EvalSelection()
-  let l:lines = getline(line("'<"), line("'>"))
-  let l:lines[0] = l:lines[0][col("'<")-1 : ]
-  let l:lines[-1] = l:lines[-1][: col("'>")-1]
-  call s:SendToRepl(l:lines, 1, 1)
-endfunction " EvalSelection
+function! repl#GetSelection()
+  let l:savereg = ['r', getreg('r'), getregtype('r')]
+  normal! gv"ry
+  let l:text = split(getreg('r'), '\n')
+  call call('setreg', l:savereg)
+  return l:text
+endfunction
 
-function! s:EvalLine()
-  call s:SendToRepl(getline('.'), 1, 1)
-endfunction " EvalLine
+function! repl#SendText(bufOrType, text) range
+  call s:SendToRepl(a:text, 1, 1, a:bufOrType)
+endfunction
 
 " vim: set ts=8 sw=2 sts=2 et:
