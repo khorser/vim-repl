@@ -1,6 +1,6 @@
 " REPL plugin to interact with interpreters for various programming languages
 " Author: Sergey Khorev <sergey.khorev@gmail.com>
-" Last Change:	$HGLastChangedDate: 2012-12-22 07:47 +0400 $
+" Last Change:	$HGLastChangedDate$
 " Home Page:  http://www.vim.org/scripts/script.php?script_id=4336
 "             https://bitbucket.org/khorser/vim-repl
 "             https://github.com/khorser/vim-repl
@@ -149,7 +149,8 @@ let g:ReplTypes =
       \ 'init'    : "import sys\nsys.ps1=\"\\npython> \"",
       \ 'prompt'  : '\m\C^python>',
       \ 'split'   : 'belowright',
-      \ 'syntax'  : 'python'}
+      \ 'syntax'  : 'python',
+      \ 'join'    : "\n"}
   \, 'R':
       \{'command' : 'R --no-save --ess',
       \ 'init'    : 'options(prompt="\nR> ", continue="")',

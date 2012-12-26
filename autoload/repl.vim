@@ -1,6 +1,6 @@
 "y REPL plugin to interact with interpreters for various programming languages
 " Author: Sergey Khorev <sergey.khorev@gmail.com>
-" Last Change:	$HGLastChangedDate: 2012-12-22 07:47 +0400 $
+" Last Change:	$HGLastChangedDate$
 
 let s:ReplFullyInitialized = 0
 
@@ -81,7 +81,11 @@ function! s:SaveInput(fname, force)
     let l:prev = l:pos
     let l:lp = s:GetCurrentLinesAndPos()
     if !empty(l:lp)
-      call add(l:text, join(l:lp.lines, b:replinfo.join))
+      if b:replinfo.join != "\n"
+        call add(l:text, join(l:lp.lines, b:replinfo.join))
+      else
+        call extend(l:text, l:lp.lines, len(l:text))
+      endif
     endif
   endwhile
   call writefile(l:text, a:fname)
@@ -203,7 +207,7 @@ function! s:Execute()
       let l:to = l:next[0] - 1
       exec 'silent' l:from ','  l:to 'delete _'
     endif
-    call s:SendToRepl(join(l:current.lines, b:replinfo.join), 0, 0, bufnr(''))
+    call s:SendToRepl(l:current.lines, 0, 0, bufnr(''))
   endif
 endfunction
 
@@ -451,21 +455,25 @@ function! s:SendToRepl(text, echo, append, bufOrType)
   endif
   let l:info = getbufvar(l:b, 'replinfo')
   if type(a:text) == type('')
-    let l:text = a:text
+    let l:text = [a:text]
   elseif type(a:text) == type([])
-    let l:text = join(a:text, l:info.join)
+    if l:info.join != "\n"
+      let l:text = [join(a:text, l:info.join)]
+    else
+      let l:text = a:text
+    endif
   else
-    let l:text = string(a:text)
+    let l:text = [string(a:text)]
   endif
   if a:echo
-    call add(l:info.echo, l:text)
+    call extend(l:info.echo, l:text, len(l:info.echo))
   endif
   let l:proc = l:info.proc
   if l:proc.is_valid && !l:proc.stdin.eof
     if a:append
       let l:info.curpos = -1
     endif
-    return l:proc.stdin.write(l:text) + l:proc.stdin.write("\n")
+    return map(l:text, 'l:proc.stdin.write(v:val) + l:proc.stdin.write("\n")')
   endif
 endfunction " SendToRepl
 
