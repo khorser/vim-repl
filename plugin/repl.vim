@@ -58,14 +58,14 @@
 "
 " Autocommands can be used to add settings specific to particular interpreters
 " like:
-"   autocmd FileType repl :if expand('<afile>')=~#'^\d\+GHCi$' | <setup GHCi mappings> | endif  
+"   autocmd FileType repl :if expand('<afile>')=~#'^\d\+GHCi$' | <setup GHCi mappings> | endif
 "
 "
 " Customisation:
-" Define g:replUserDefaults and g:replUserTypes
+" Define g:ReplUserDefaults and g:ReplUserTypes
 "   using g:ReplDefaults and g:ReplTypes as samples
-"   g:replUserDefaults provides default settings for all interpreters
-"   g:replUserTypes provides specific overrides
+"   g:ReplUserDefaults provides default settings for all interpreters
+"   g:ReplUserTypes provides specific overrides
 " Feel free to send me settings for your favourite interpreter
 "
 " Fields:
@@ -79,6 +79,9 @@
 "   wrap    - not used for now
 "   join    - string used to concatenate multiple lines (many interpreters
 "               allow only one input line)
+"   condensedout  - suppress empty prompts, usually used with join="\n"
+"   promptlines   - the number of lines in prompt (2 if the prompt contains
+"                     EOL embedded), used with condensetoutput=1
 
 if exists('g:loaded_repl')
   finish
@@ -100,6 +103,8 @@ let g:ReplDefaults =
       \ 'syntax'  : '',
       \ 'scroll'  : 1,
       \ 'wrap'    : 0,
+      \ 'promptlines' : 2,
+      \ 'condensedout' : 0,
       \ 'join'    : ' '}
 
 let g:ReplTypes =
@@ -149,6 +154,7 @@ let g:ReplTypes =
       \ 'init'    : "import sys\nsys.ps1=\"\\npython> \"",
       \ 'prompt'  : '\m\C^python>',
       \ 'split'   : 'belowright',
+      \ 'condensedout' : 1,
       \ 'syntax'  : 'python',
       \ 'join'    : "\n"}
   \, 'R':
@@ -172,36 +178,13 @@ let g:ReplTypes =
       \ 'prompt'  : '\m\C^tcsh>',
       \ 'syntax'  : 'tcsh'}
   \ }
-
-"  \, 'Lambdabot':
-"      \{'command' : 'lambdabot',
-"      \ 'init'    : '',
-"      \ 'prompt'  : '\m\C^lambdabot>',
-"      \ 'syntax'  : 'haskell'}
-
-" Not operational:
-"  How can we change nested prompt or disable nested at all?
-"  \, 'Guile':
-"      \{'command' : 'guile --',
-"      \ 'init'   : ',o prompt "\n\nguile> "',
-"      \        'prompt'  : '\m\C^guile>',
-"      \        'syntax'  : 'scheme'}
-"  Need to disable DWIM somehow, also what is the point of using REPL if facts
-"  need to be 'consult'ed anyway?
-"  \, 'SWIprolog':
-"      \{'command' : 'swipl -g "set_prolog_flag(color_term, false),set_stream(user_input, tty(true)),set_stream(user_output, tty(true))"',
-"      \ 'init'   : "'$set_prompt'('\nswipl> ').",
-"      \        'prompt'  : '\m\C^swipl>',
-"      \        'syntax'  : 'prolog'}
-"  gprolog - doesn't flush output
-"  erl - any use?
-
+  
 function! s:ReplInit()
-  if exists('g:replUserDefaults')
-    call extend(g:replDefaults, g:replUserDefaults, 'force')
+  if exists('g:ReplUserDefaults')
+    call extend(g:ReplDefaults, g:ReplUserDefaults, 'force')
   endif
-  if exists('g:replUserTypes')
-    call extend(g:replTypes, g:replUserTypes, 'force')
+  if exists('g:ReplUserTypes')
+    call extend(g:ReplTypes, g:ReplUserTypes, 'force')
   endif
   for l:t in keys(g:ReplTypes)
     exec 'command! -nargs=* -bang Open'.l:t.

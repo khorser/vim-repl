@@ -69,49 +69,49 @@ function! s:SaveInput(fname, force)
       return
     endif
   endif
-  let l:save = getpos('.')[1:2]
-  let l:prev = [1, 1]
-  call cursor(l:prev)
-  let l:text = []
+  let save = getpos('.')[1:2]
+  let prev = [1, 1]
+  call cursor(prev)
+  let text = []
   while 1
-    let l:pos = s:StartOfNextPrompt(1)
-    if l:pos == l:prev || l:pos == [0, 0]
+    let pos = s:StartOfNextPrompt(1)
+    if pos == prev || pos == [0, 0]
       break
     endif
-    let l:prev = l:pos
-    let l:lp = s:GetCurrentLinesAndPos()
-    if !empty(l:lp)
+    let prev = pos
+    let lp = s:GetCurrentLinesAndPos()
+    if !empty(lp)
       if b:replinfo.join != "\n"
-        call add(l:text, join(l:lp.lines, b:replinfo.join))
+        call add(text, join(lp.lines, b:replinfo.join))
       else
-        call extend(l:text, l:lp.lines, len(l:text))
+        call extend(text, lp.lines, len(text))
       endif
     endif
   endwhile
-  call writefile(l:text, a:fname)
-  call cursor(l:save)
+  call writefile(text, a:fname)
+  call cursor(save)
 endfunction
 
 " NAVIGATION
 function! s:EndOfCurrOrPrevPrompt(move)
-  let l:pos = getpos('.')[1:2]
-  let l:curr = s:EndOfCurrPrompt(a:move)
-  if l:curr[0] == l:pos[0] && l:curr[1] >= l:pos[1] " cursor is still in prompt area
+  let pos = getpos('.')[1:2]
+  let curr = s:EndOfCurrPrompt(a:move)
+  if curr[0] == pos[0] && curr[1] >= pos[1] " cursor is still in prompt area
     " match only above current prompt
-    let l:pos = searchpos(b:replinfo.prompt.'\m\%<'.(l:curr[0]-1).'l\s*\zs',
+    let pos = searchpos(b:replinfo.prompt.'\m\%<'.(curr[0]-1).'l\s*\zs',
       \ (a:move ? '' : 'n').'bcW')
   endif
-  return l:pos
+  return pos
 endfunction
 
 function! s:EndOfCurrPrompt(move)
-  let l:pos = match(getline('.'), b:replinfo.prompt.'\m\s*\zs')
-  if l:pos > -1
-    let l:result = [line('.'), l:pos + 1]
+  let pos = match(getline('.'), b:replinfo.prompt.'\m\s*\zs')
+  if pos > -1
+    let result = [line('.'), pos + 1]
     if a:move
-      call cursor(l:result[0], l:result[1])
+      call cursor(result[0], result[1])
     endif
-    return l:result
+    return result
   endif
   return searchpos(b:replinfo.prompt.'\m\s*\zs', (a:move ? '' : 'n').'bcW')
 endfunction
@@ -125,28 +125,28 @@ function! s:EndOfNextPrompt(move)
 endfunction
 
 function! s:GoToEndOfNextOrCurrentCommand()
-  let l:pos = searchpos('\m^'.b:replinfo.outmarker, 'nW')
-  if !l:pos[0]
-    let l:line = line('$')
+  let pos = searchpos('\m^'.b:replinfo.outmarker, 'nW')
+  if !pos[0]
+    let line = line('$')
   else
-    let l:line = l:pos[0] - 1
+    let line = pos[0] - 1
   endif
-  call cursor(l:line, len(getline(l:line)))
+  call cursor(line, len(getline(line)))
 endfunction
 
 function! s:GoToEndOfPrevCommand()
-  let l:curr = s:EndOfCurrPrompt(0)
+  let curr = s:EndOfCurrPrompt(0)
   " match only above current prompt
-  let l:pos = searchpos(b:replinfo.prompt.'\m\%<'.(l:curr[0]-1).'l\s*\zs', 'bcW')
-  if l:pos != [0, 0]
+  let pos = searchpos(b:replinfo.prompt.'\m\%<'.(curr[0]-1).'l\s*\zs', 'bcW')
+  if pos != [0, 0]
     call s:GoToEndOfNextOrCurrentCommand()
   endif
 endfunction
 
 function! s:StartOfNextPromptOrOutput(move)
-  let l:pos = searchpos('\m'.b:replinfo.prompt.'\m\|^'
+  let pos = searchpos('\m'.b:replinfo.prompt.'\m\|^'
     \ .b:replinfo.outmarker, (a:move ? '' : 'n').'W')
-  return l:pos
+  return pos
 endfunction
 
 function! s:EndOfCurrOrPrevPromptMap()
@@ -177,49 +177,49 @@ function! s:GetCurrentLinesAndPos()
   if match(getline('.'), b:replinfo.prompt.'\m\s*$') > -1 " empty input line
     return {}
   endif
-  let l:start = s:EndOfCurrPrompt(1)
-  let l:end = s:StartOfNextPromptOrOutput(0)
-  if l:end == [0, 0]
-    let l:end = [line('$'), len(getline('$'))]
+  let start = s:EndOfCurrPrompt(1)
+  let end = s:StartOfNextPromptOrOutput(0)
+  if end == [0, 0]
+    let end = [line('$'), len(getline('$'))]
   else
-    let l:end[0] -= 1
+    let end[0] -= 1
   endif
-  let l:result = {'line1' : l:start[0], 'line2' : l:end[0], 'lines' : []}
-  if l:start != [0, 0]
-    let l:lines = getline(l:start[0], l:end[0])
-    let l:lines[0] = l:lines[0][l:start[1] - 1 : ] "column index is 1-based
-    let l:result.lines = l:lines
+  let result = {'line1' : start[0], 'line2' : end[0], 'lines' : []}
+  if start != [0, 0]
+    let lines = getline(start[0], end[0])
+    let lines[0] = lines[0][start[1] - 1 : ] "column index is 1-based
+    let result.lines = lines
   endif
-  return l:result
+  return result
 endfunction
 
 function! s:Execute()
-  let l:current = s:GetCurrentLinesAndPos()
-  if empty(l:current)
+  let current = s:GetCurrentLinesAndPos()
+  if empty(current)
     return
   endif
-  if !empty(l:current.lines)
-    let b:replinfo.curpos = l:current.line2
-    let l:next = s:StartOfNextPrompt(0)
-    if l:next != [0, 0]
+  if !empty(current.lines)
+    let b:replinfo.curpos = current.line2
+    let next = s:StartOfNextPrompt(0)
+    if next != [0, 0]
       " delete previous output
-      let l:from = l:current.line2 + 1
-      let l:to = l:next[0] - 1
-      exec 'silent' l:from ','  l:to 'delete _'
+      let from = current.line2 + 1
+      let to = next[0] - 1
+      exec 'silent' from ','  to 'delete _'
     endif
-    call s:SendToRepl(l:current.lines, 0, 0, bufnr(''))
+    call s:SendToRepl(current.lines, 0, 0, 1, bufnr(''))
   endif
 endfunction
 
 function! s:CopyCurrent()
-  let l:current = s:GetCurrentLinesAndPos()
-  if empty(l:current)
+  let current = s:GetCurrentLinesAndPos()
+  if empty(current)
     return
   endif
-  let l:lines = l:current.lines
-  if l:current.line2 < line('$') && !empty(l:lines)
-    let l:lines[0] = getline('$') . l:lines[0]
-    call setline(line('$'), l:lines)
+  let lines = current.lines
+  if current.line2 < line('$') && !empty(lines)
+    let lines[0] = getline('$') . lines[0]
+    call setline(line('$'), lines)
     call cursor(line('$'), len(getline('$')))
   endif
 endfunction
@@ -228,72 +228,77 @@ let s:replbufs = {}
 
 function! s:IsBufferValid(buf)
   if bufexists(a:buf)
-    let l:info = getbufvar(a:buf, 'replinfo')
-    return !empty(l:info) && l:info.proc.is_valid
-          \ && !l:info.proc.stdin.eof && !l:info.proc.stdout.eof
+    let info = getbufvar(a:buf, 'replinfo')
+    return !empty(info) && info.proc.is_valid
+          \ && !info.proc.stdin.eof && !info.proc.stdout.eof
   endif
   return 0
 endfunction
 
 function! s:CleanupDeadBuffers()
-  for l:t in keys(s:replbufs)
-    call filter(s:replbufs[l:t], 's:IsBufferValid(v:val)')
+  for t in keys(s:replbufs)
+    call filter(s:replbufs[t], 's:IsBufferValid(v:val)')
   endfor
   call filter(s:replbufs, '!empty(v:val)')
 endfunction
 
 function! s:FindReplBufferWithType(type)
   call s:CleanupDeadBuffers()
-  let l:b = 0
+  let b = 0
   if exists('b:replbuf') && bufexists(b:replbuf)
       \&& getbufvar(b:replbuf, 'replinfo').type == a:type
-    let l:b = b:replbuf
+    let b = b:replbuf
   " check other buffers on the same tab first?
   elseif exists('s:replbufs["'.a:type.'"]')
-    let l:b = s:replbufs[a:type][0]
+    let b = s:replbufs[a:type][0]
   endif
-  return l:b
+  return b
 endfunction " FindReplBufferWithType
 
 function! s:NewReplBuffer(args, type)
   call s:CleanupDeadBuffers()
   " populate REPL info using default entry as a prototype
-  let l:replinfo = deepcopy(g:ReplDefaults)
-  call extend(l:replinfo, g:ReplTypes[a:type], 'force')
-  call extend(l:replinfo, {'curpos': 1, 'markerpending': 0, 'echo': [], 'type': a:type})
+  let replinfo = deepcopy(g:ReplDefaults)
+  call extend(replinfo, g:ReplTypes[a:type], 'force')
+  call extend(replinfo,
+    \ {'curpos'     : 1,
+    \'markerpending': 0,
+    \'echo'         : [],
+    \'type'         : a:type,
+    \'promptspending' : 1})
 
   try
-    let l:replinfo.proc = vimproc#popen2(l:replinfo.command . ' ' . a:args)
+    let replinfo.proc = vimproc#popen2(replinfo.command . ' ' . a:args)
   catch
     echohl ErrorMsg | echomsg "Error creating process:" v:exception | echohl None
     " rethrow?
     return 0
   endtry
 
-  exec l:replinfo.split 'new'
-  let b:replinfo = l:replinfo
+  exec replinfo.split 'new'
+  let b:replinfo = replinfo
 
-  let l:buf = bufnr('')
-  call s:SendToRepl(b:replinfo.init, 0, 0, l:buf)
+  let buf = bufnr('')
+  call s:SendToRepl(b:replinfo.init, 0, 0, 0, buf)
 
   if exists('s:replbufs["'.a:type.'"]')
-    let l:bufs = s:replbufs[a:type]
+    let bufs = s:replbufs[a:type]
   else
-    let l:bufs = []
+    let bufs = []
   endif
-  call add(l:bufs, l:buf)
-  let s:replbufs[a:type] = l:bufs
+  call add(bufs, buf)
+  let s:replbufs[a:type] = bufs
 
   call s:SetupBuffer()
 
   wincmd W
-  return l:buf
+  return buf
 endfunction " NewReplBuffer
 
 function! s:CloseRepl(buffer, wipe)
-  let l:info = getbufvar(a:buffer, 'replinfo')
-  if l:info.proc.is_valid
-    call l:info.proc.kill(15)
+  let info = getbufvar(a:buffer, 'replinfo')
+  if info.proc.is_valid
+    call info.proc.kill(15)
   endif
   if a:wipe
     exec a:buffer 'bwipe'
@@ -304,83 +309,104 @@ endfunction
 function! repl#OpenRepl(args, type, new)
   call s:ReplInit2()
   if a:new
-    let l:b = 0
+    let b = 0
   else
-    let l:b = s:FindReplBufferWithType(a:type)
-    if l:b > 0 && bufwinnr(l:b) == -1 " window not visible
-      exec getbufvar(l:b, 'replinfo').split 'sbuffer' l:b
+    let b = s:FindReplBufferWithType(a:type)
+    if b > 0 && bufwinnr(b) == -1 " window not visible
+      exec getbufvar(b, 'replinfo').split 'sbuffer' b
       wincmd W
     endif
   endif
-  if !l:b
-    let l:b = s:NewReplBuffer(a:args, a:type)
+  if !b
+    let b = s:NewReplBuffer(a:args, a:type)
   endif
-  if l:b > 0
-    let b:replbuf = l:b
+  if b > 0
+    let b:replbuf = b
   endif
 endfunction " OpenRepl
 
 function! s:IsBufferWindowVisible(buf)
-  let l:src = bufwinnr('')
-  let l:win = bufwinnr(a:buf)
-  let l:result = 0
-  if l:win > -1
+  let src = bufwinnr('')
+  let win = bufwinnr(a:buf)
+  let result = 0
+  if win > -1
     try
       " check if we are able to switch to the buffer window and back
-      exec l:win 'wincmd w'
-      exec l:src 'wincmd w'
-      let l:result = 1
+      exec win 'wincmd w'
+      exec src 'wincmd w'
+      let result = 1
     catch
-      let l:result = 0
+      let result = 0
     endtry
   endif
-  return l:result
+  return result
 endfunction
 
 function! s:ReadFromRepl()
-  for l:t in keys(s:replbufs)
-    for l:b in s:replbufs[l:t]
-      if s:IsBufferValid(l:b) && s:IsBufferWindowVisible(l:b)
-        let l:info = getbufvar(l:b, 'replinfo')
-        let l:proc = l:info.proc
-        let l:text = l:proc.stdout.read()
-        call s:WriteToBuffer(l:b, l:text)
+  for t in keys(s:replbufs)
+    for b in s:replbufs[t]
+      if s:IsBufferValid(b) && s:IsBufferWindowVisible(b)
+        let info = getbufvar(b, 'replinfo')
+        let proc = info.proc
+        let text = proc.stdout.read()
+        call s:WriteToBuffer(b, text)
       endif
     endfor
   endfor
 endfunction
 
+function! s:GetEcho()
+  if empty(b:replinfo.echo)
+    return ['']
+  elseif !b:replinfo.condensedout
+    return [remove(b:replinfo.echo, 0)]
+  else
+    let echo = b:replinfo.echo
+    let b:replinfo.echo = []
+    return echo
+  endif
+endfunction
+
 " Manipulate text to imitate command line experience
 function! s:EnrichText(text)
-  let l:prompt = b:replinfo.prompt
+  "echom string(a:text)
+  let prompt = b:replinfo.prompt
   if b:replinfo.markerpending
-    if !empty(b:replinfo.echo)
-      let l:echo = remove(b:replinfo.echo, 0)
-    else
-      let l:echo = ''
-    endif
-    call extend(a:text, [l:echo, b:replinfo.outmarker], 0)
+    call extend(a:text, add(s:GetEcho(), b:replinfo.outmarker), 0)
     let b:replinfo.markerpending = 0
   endif
-  let l:promptPos = match(a:text, l:prompt)
+  let promptIdx = match(a:text, prompt)
   let a:text[0] = getline(b:replinfo.curpos) . a:text[0]
-  while l:promptPos > -1
-    let l:line = a:text[l:promptPos]
-    let l:promptEnd = match(l:line, l:prompt . '\m\zs')
-    if !empty(b:replinfo.echo)
-      let l:echo = remove(b:replinfo.echo, 0)
+  "echom string(a:text)
+  while promptIdx > -1
+    let line = a:text[promptIdx]
+    let promptEnd = match(line, prompt . '\m\zs')
+    let echo = s:GetEcho()
+    let a:text[promptIdx] = line[: promptEnd] . echo[0]
+    let rest = line[promptEnd+1 :] " rest of the output after the prompt
+    call extend(a:text, echo[1:], promptIdx+1)
+    "echom b:replinfo.promptspending
+    if b:replinfo.promptspending > 1 && b:replinfo.condensedout
+        \ && echo == ['']
+      " suppress spurious prompts and preceeding empty lines
+      " assuming the interpreter will print prompt for every
+      " input line, otherwise the final prompt might not appear
+      if promptIdx > 0 && a:text[promptIdx-1] =~ '\m^\s*$'
+        call remove(a:text, promptIdx-1)
+        let promptIdx -= 1
+      endif
+      let a:text[promptIdx] = rest
+      let promptIdx -= 1
     else
-      let l:echo = ''
+      if promptIdx == len(a:text)-1
+        let b:replinfo.markerpending = 1
+      else
+        call extend(a:text, [b:replinfo.outmarker, rest], promptIdx+1)
+        let promptIdx += 2
+      endif
     endif
-    let a:text[l:promptPos] = l:line[: l:promptEnd] . l:echo
-    if l:promptPos == len(a:text) - 1
-      let b:replinfo.markerpending = 1
-    else " more text after the prompt
-      call extend(a:text,
-            \ [b:replinfo.outmarker, strpart(l:line, l:promptEnd+1)],
-            \ l:promptPos+1)
-    endif
-    let l:promptPos = match(a:text, l:prompt, l:promptPos + 1)
+    let b:replinfo.promptspending -= 1
+    let promptIdx = match(a:text, prompt, promptIdx + 1)
   endwhile
 endfunction
 
@@ -389,18 +415,18 @@ function! s:WriteToBuffer(buf, text)
     return
   endif
 
-  let l:src = bufwinnr('')
+  let src = bufwinnr('')
   exec bufwinnr(a:buf) 'wincmd w'
-  let l:text = split(a:text, '\m[\r]\?\n', 1)
+  let text = split(a:text, '\m[\r]\?\n', 1)
   if b:replinfo.curpos < 1
     let b:replinfo.curpos = line('$')
   endif
 
-  call s:EnrichText(l:text)
-  call setline(b:replinfo.curpos, l:text[0])
-  call append(b:replinfo.curpos, l:text[1:])
+  call s:EnrichText(text)
+  call setline(b:replinfo.curpos, text[0])
+  call append(b:replinfo.curpos, text[1:])
 
-  let b:replinfo.curpos += len(l:text) - 1
+  let b:replinfo.curpos += len(text) - 1
   if b:replinfo.scroll
     call cursor(b:replinfo.curpos, len(getline(b:replinfo.curpos)))
   endif
@@ -412,7 +438,7 @@ function! s:WriteToBuffer(buf, text)
     call s:EndOfCurrOrPrevPrompt(1) " return to the command
     call s:GoToEndOfNextOrCurrentCommand()
   endif
-  exec l:src 'wincmd w'
+  exec src 'wincmd w'
 endfunction "WriteToBuffer
 
 function! s:FindReplBuffer(bufOrType)
@@ -421,72 +447,76 @@ function! s:FindReplBuffer(bufOrType)
   elseif !empty(a:bufOrType)
     return s:FindReplBufferWithType(a:bufOrType)
   endif
-  let l:b = 0
+  let b = 0
   if exists('b:replinfo')
-    let l:b = bufnr('')
+    let b = bufnr('')
   elseif exists('b:replbuf')
-    let l:b = b:replbuf
+    let b = b:replbuf
   else " try to find some REPL buffer
-    let l:b = 0
-    for l:t in keys(s:replbufs)
-      for l:bf in s:replbufs[l:t]
-        if bufexists(l:bf)
-          let l:b = l:bf
+    let b = 0
+    for t in keys(s:replbufs)
+      for bf in s:replbufs[t]
+        if bufexists(bf)
+          let b = bf
           break
         endif
       endfor
-      if l:b > 0
+      if b > 0
         break
       endif
     endfor
   endif
-  return l:b
+  return b
 endfunction " FindReplBuffer
 
-function! s:SendToRepl(text, echo, append, bufOrType)
+function! s:SendToRepl(text, echo, append, user, bufOrType)
   call s:CleanupDeadBuffers()
   if empty(a:text)
     return
   endif
-  let l:b = s:FindReplBuffer(a:bufOrType)
-  if !s:IsBufferValid(l:b)
+
+  let b = s:FindReplBuffer(a:bufOrType)
+  if !s:IsBufferValid(b)
     echoerr 'REPL is not connected'
     return
   endif
-  let l:info = getbufvar(l:b, 'replinfo')
+  let info = getbufvar(b, 'replinfo')
   if type(a:text) == type('')
-    let l:text = [a:text]
+    let text = [a:text]
   elseif type(a:text) == type([])
-    if l:info.join != "\n"
-      let l:text = [join(a:text, l:info.join)]
+    if info.join != "\n"
+      let text = [join(a:text, info.join)]
     else
-      let l:text = a:text
+      let text = a:text
     endif
   else
-    let l:text = [string(a:text)]
+    let text = [string(a:text)]
   endif
   if a:echo
-    call extend(l:info.echo, l:text, len(l:info.echo))
+    call extend(info.echo, text, len(info.echo))
   endif
-  let l:proc = l:info.proc
-  if l:proc.is_valid && !l:proc.stdin.eof
+  if a:user
+    let info.promptspending += len(text)
+  endif
+  let proc = info.proc
+  if proc.is_valid && !proc.stdin.eof
     if a:append
-      let l:info.curpos = -1
+      let info.curpos = -1
     endif
-    return map(l:text, 'l:proc.stdin.write(v:val) + l:proc.stdin.write("\n")')
+    return map(text, 'proc.stdin.write(v:val) + proc.stdin.write("\n")')
   endif
 endfunction " SendToRepl
 
 function! repl#GetSelection()
-  let l:savereg = ['r', getreg('r'), getregtype('r')]
-  normal! gv"ry
-  let l:text = split(getreg('r'), '\n')
-  call call('setreg', l:savereg)
-  return l:text
+  let savereg = ['r', getreg('r'), getregtype('r')]
+  silent exe 'normal! gv"ry'
+  let text = split(getreg('r'), '\n')
+  call call('setreg', savereg)
+  return text
 endfunction
 
 function! repl#SendText(bufOrType, text) range
-  call s:SendToRepl(a:text, 1, 1, a:bufOrType)
+  call s:SendToRepl(a:text, 1, 1, 1, a:bufOrType)
 endfunction
 
 " vim: set ts=8 sw=2 sts=2 et:
