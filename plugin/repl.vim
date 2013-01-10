@@ -1,6 +1,6 @@
 " REPL plugin to interact with interpreters for various programming languages
 " Author: Sergey Khorev <sergey.khorev@gmail.com>
-" Last Change:	$HGLastChangedDate$
+" Last Change:	$HGLastChangedDate: 2012-12-30 23:15 +0400 $
 " Home Page:  http://www.vim.org/scripts/script.php?script_id=4336
 "             https://bitbucket.org/khorser/vim-repl
 "             https://github.com/khorser/vim-repl
